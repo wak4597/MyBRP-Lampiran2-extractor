@@ -162,26 +162,29 @@ def extract_field_data(doc):
         addr_clean = alamat_match.group(1).strip().replace('\n', ' ')
         data["alamat_premis"] = re.sub(r'\s+', ' ', addr_clean)
         
-    # [UPDATED] Extract OYB details specifically from "Butiran Orang Yang Bertanggungjawab:"
+    # Extract OYB details specifically from "Butiran Orang Yang Bertanggungjawab:"
     butiran_oyb_section = re.search(r'Butiran Orang Yang Bertanggungjawab:(.*?)(?=Tarikh lesen bermula|No\.\s*Fail|Pegawai Proses|\Z)', full_text, re.DOTALL | re.IGNORECASE)
     
     if butiran_oyb_section:
         oyb_text = butiran_oyb_section.group(1)
-        raw_nama = extract(r'Nama:\s*([^\n]+)', oyb_text)
-        # Clean inline remarks like (=Nama OYB) if they exist
+        
+        # [UPDATED] Nama: Stops reading when it hits "No. K/P:"
+        raw_nama = extract(r'Nama:\s*(.*?)(?=\s*No\.\s*K/?P:|\n|$)', oyb_text)
         data["nama_oyb"] = re.sub(r'\s*\(=.*?\)', '', raw_nama).strip()
         
-        data["kp_oyb"] = extract(r'No\.\s*K/?P:\s*([^\n]+)', oyb_text)
+        # [UPDATED] No. K/P: Stops reading when it hits "Kelayakan:"
+        data["kp_oyb"] = extract(r'No\.\s*K/?P:\s*(.*?)(?=\s*Kelayakan:|\n|$)', oyb_text)
         
-        raw_kelayakan = extract(r'Kelayakan:\s*([^\n]+)', oyb_text)
+        # [UPDATED] Kelayakan: Stops reading when it hits "Tarikh" or "No. Fail"
+        raw_kelayakan = extract(r'Kelayakan:\s*(.*?)(?=\s*Tarikh|\s*No\.\s*Fail|\n|$)', oyb_text)
         data["kelayakan_oyb"] = re.sub(r'\s*\(=.*?\)', '', raw_kelayakan).strip()
     else:
         # Fallback to table if Butiran section is missing
         oyb_section = re.search(r'Orang Yang Bertanggungjawab \(OYB\)(.*?)(?:Ketua Jabatan|Isu / Ulasan)', full_text, re.DOTALL | re.IGNORECASE)
         if oyb_section:
             oyb_table_text = oyb_section.group(1)
-            data["nama_oyb"] = extract(r'\nNama\s*(?:[:|]\s*)([^\n]+)', oyb_table_text)
-            data["kp_oyb"] = extract(r'No\. Kad Pengenalan\s*(?:[:|]\s*)([^\n]+)', oyb_table_text)
+            data["nama_oyb"] = extract(r'\nNama\s*(?:[:|]\s*)(.*?)(?=\s*No\. Kad Pengenalan|\s*No\.\s*K/?P|\n|$)', oyb_table_text)
+            data["kp_oyb"] = extract(r'No\. Kad Pengenalan\s*(?:[:|]\s*)(.*?)(?=\s*Jantina|\s*Bangsa|\n|$)', oyb_table_text)
         data["kelayakan_oyb"] = extract(r'Kelayakan:\s*(.*?)(?=\s*Tarikh\s+lesen\s+bermula|\s*Tarikh\s+permohonan|\s*No\.\s+Fail|\n|$)', full_text)
         
     data["tarikh_permohonan"] = extract(r"Tarikh terima fi pemprosesan:\s*([^\n(]+)", full_text).strip()
