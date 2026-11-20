@@ -168,14 +168,14 @@ def extract_field_data(doc):
     if butiran_oyb_section:
         oyb_text = butiran_oyb_section.group(1)
         
-        # [UPDATED] Nama: Stops reading when it hits "No. K/P:"
+        # Nama: Stops reading when it hits "No. K/P:"
         raw_nama = extract(r'Nama:\s*(.*?)(?=\s*No\.\s*K/?P:|\n|$)', oyb_text)
         data["nama_oyb"] = re.sub(r'\s*\(=.*?\)', '', raw_nama).strip()
         
-        # [UPDATED] No. K/P: Stops reading when it hits "Kelayakan:"
+        # No. K/P: Stops reading when it hits "Kelayakan:"
         data["kp_oyb"] = extract(r'No\.\s*K/?P:\s*(.*?)(?=\s*Kelayakan:|\n|$)', oyb_text)
         
-        # [UPDATED] Kelayakan: Stops reading when it hits "Tarikh" or "No. Fail"
+        # Kelayakan: Stops reading when it hits "Tarikh" or "No. Fail"
         raw_kelayakan = extract(r'Kelayakan:\s*(.*?)(?=\s*Tarikh|\s*No\.\s*Fail|\n|$)', oyb_text)
         data["kelayakan_oyb"] = re.sub(r'\s*\(=.*?\)', '', raw_kelayakan).strip()
     else:
@@ -189,13 +189,15 @@ def extract_field_data(doc):
         
     data["tarikh_permohonan"] = extract(r"Tarikh terima fi pemprosesan:\s*([^\n(]+)", full_text).strip()
     
-    # Strictly extract the date inside the [] for Tarikh Luput
-    data["tarikh_luput"] = extract(r"luput lesen sedia ada iaitu pada\s*\[([^\]]+)\]", full_text)
-    if not data["tarikh_luput"]:
+    # Find all matches for Tarikh Luput, but strictly grab the LAST one (near the end of the doc)
+    luput_matches = re.findall(r"luput lesen sedia ada iaitu pada\s*\[?([^\]\.\n]+)\]?", full_text, re.IGNORECASE)
+    if luput_matches:
+        data["tarikh_luput"] = luput_matches[-1].strip()
+    else:
          data["tarikh_luput"] = extract(r"Tarikh Sah Lesen\s*\|\s*[^-]+-\s*([^\n]+)", full_text)
          
-    # No. Fail: Stops reading when it hits "Pegawai Proses" or "Tarikh"
-    data["no_fail"] = extract(r"No\.\s*Fail:\s*(.*?)(?=\s*Pegawai\s+Proses:|\s*Tarikh|\n|$)", full_text)
+    # No. Fail: Look specifically for the KKM 87/A2/x-x/x/x JILID x pattern
+    data["no_fail"] = extract(r"(KKM\s*87/A2/[A-Za-z0-9/.-]+(?:\s+JILID\s+\d+)?)", full_text)
     
     # Pegawai Proses: Stops reading when it hits "Tarikh"
     data["pegawai_proses"] = extract(r"Pegawai\s*Proses:\s*(.*?)(?=\s*Tarikh|\n|$)", full_text)
