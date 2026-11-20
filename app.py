@@ -351,6 +351,7 @@ with st.expander("📖 Cara Guna", expanded=False): # Change to True if you want
     2. Muat naik fail anda di ruangan yang disediakan di bawah.
     3. Klik butang **Proses** dan tunggu sehingga selesai.
     4. Muat turun fail hasil yang telah dijana.
+    5. edit format, spacing dan ayat jadi standard lepas tu copy paste dalam Lampiran 2
     """)
 
 uploaded_files = st.file_uploader(
