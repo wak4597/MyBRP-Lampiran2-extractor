@@ -162,13 +162,27 @@ def extract_field_data(doc):
         addr_clean = alamat_match.group(1).strip().replace('\n', ' ')
         data["alamat_premis"] = re.sub(r'\s+', ' ', addr_clean)
         
-    oyb_section = re.search(r'Orang Yang Bertanggungjawab \(OYB\)(.*?)(?:Ketua Jabatan|Isu / Ulasan)', full_text, re.DOTALL | re.IGNORECASE)
-    if oyb_section:
-        oyb_text = oyb_section.group(1)
-        data["nama_oyb"] = extract(r'\nNama\s*(?:[:|]\s*)([^\n]+)', oyb_text)
-        data["kp_oyb"] = extract(r'No\. Kad Pengenalan\s*(?:[:|]\s*)([^\n]+)', oyb_text)
+    # [UPDATED] Extract OYB details specifically from "Butiran Orang Yang Bertanggungjawab:"
+    butiran_oyb_section = re.search(r'Butiran Orang Yang Bertanggungjawab:(.*?)(?=Tarikh lesen bermula|No\.\s*Fail|Pegawai Proses|\Z)', full_text, re.DOTALL | re.IGNORECASE)
+    
+    if butiran_oyb_section:
+        oyb_text = butiran_oyb_section.group(1)
+        raw_nama = extract(r'Nama:\s*([^\n]+)', oyb_text)
+        # Clean inline remarks like (=Nama OYB) if they exist
+        data["nama_oyb"] = re.sub(r'\s*\(=.*?\)', '', raw_nama).strip()
         
-    data["kelayakan_oyb"] = extract(r'Kelayakan:\s*([^\n]+)', full_text)
+        data["kp_oyb"] = extract(r'No\.\s*K/?P:\s*([^\n]+)', oyb_text)
+        
+        raw_kelayakan = extract(r'Kelayakan:\s*([^\n]+)', oyb_text)
+        data["kelayakan_oyb"] = re.sub(r'\s*\(=.*?\)', '', raw_kelayakan).strip()
+    else:
+        # Fallback to table if Butiran section is missing
+        oyb_section = re.search(r'Orang Yang Bertanggungjawab \(OYB\)(.*?)(?:Ketua Jabatan|Isu / Ulasan)', full_text, re.DOTALL | re.IGNORECASE)
+        if oyb_section:
+            oyb_table_text = oyb_section.group(1)
+            data["nama_oyb"] = extract(r'\nNama\s*(?:[:|]\s*)([^\n]+)', oyb_table_text)
+            data["kp_oyb"] = extract(r'No\. Kad Pengenalan\s*(?:[:|]\s*)([^\n]+)', oyb_table_text)
+        data["kelayakan_oyb"] = extract(r'Kelayakan:\s*(.*?)(?=\s*Tarikh\s+lesen\s+bermula|\s*Tarikh\s+permohonan|\s*No\.\s+Fail|\n|$)', full_text)
         
     data["tarikh_permohonan"] = extract(r"Tarikh terima fi pemprosesan:\s*([^\n(]+)", full_text).strip()
     
@@ -177,8 +191,11 @@ def extract_field_data(doc):
     if not data["tarikh_luput"]:
          data["tarikh_luput"] = extract(r"Tarikh Sah Lesen\s*\|\s*[^-]+-\s*([^\n]+)", full_text)
          
-    data["no_fail"] = extract(r"No\. Fail:\s*([^\n=]+)", full_text).strip()
-    data["pegawai_proses"] = extract(r"Pegawai Proses:\s*([^\n=]+)", full_text).strip()
+    # No. Fail: Stops reading when it hits "Pegawai Proses" or "Tarikh"
+    data["no_fail"] = extract(r"No\.\s*Fail:\s*(.*?)(?=\s*Pegawai\s+Proses:|\s*Tarikh|\n|$)", full_text)
+    
+    # Pegawai Proses: Stops reading when it hits "Tarikh"
+    data["pegawai_proses"] = extract(r"Pegawai\s*Proses:\s*(.*?)(?=\s*Tarikh|\n|$)", full_text)
     
     # Extract only the specific "untuk kapasiti... diperakui" phrase
     kapasiti_match = re.search(r'Permohonan pembaharuan lesen hospital swasta.*?(untuk kapasiti.*?diperakui)', full_text, re.IGNORECASE)
